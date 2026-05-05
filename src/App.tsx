@@ -329,6 +329,7 @@ function Sidebar({
         {[
           { id: 'chat', icon: '💬', label: 'Чат' },
           { id: 'docs', icon: '📚', label: 'База знаний' },
+{ id: 'upload', icon: '⬆️', label: 'Загрузить' },
           { id: 'about', icon: 'ℹ️', label: 'О сервисе' },
         ].map((item) => (
           <button
@@ -906,7 +907,129 @@ function DocsPage() {
     </div>
   );
 }
+function UploadPage({ proxyUrl }: { proxyUrl: string }) {
+  const [docName, setDocName] = useState('');
+  const [docText, setDocText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
+  const readFile = (file: File): Promise<string> => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsText(file, 'utf-8');
+  });
+
+  const handleFile = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const file = files[0];
+    setDocName(file.name);
+    if (file.type === 'text/plain') {
+      const text = await readFile(file);
+      setDocText(text);
+    } else {
+      setResult('⚠️ Для PDF и Word скопируйте текст вручную в поле ниже');
+    }
+  };
+
+  const upload = async () => {
+    if (!docName || !docText) return;
+    setLoading(true);
+    setResult('');
+    try {
+      const res = await fetch(`${proxyUrl}/upload-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: docText,
+          metadata: { source: docName }
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult(`✅ Загружено успешно! Создано ${data.chunks} фрагментов.`);
+        setDocText('');
+        setDocName('');
+      } else {
+        setResult('❌ Ошибка: ' + (data.error || 'неизвестная ошибка'));
+      }
+    } catch (e) {
+      setResult('❌ Ошибка соединения');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ padding: '28px 32px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' as const }}>
+      <div style={{ maxWidth: 640 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', margin: '0 0 6px' }}>Загрузить документ</h2>
+        <p style={{ fontSize: 14, color: '#6B7280', margin: '0 0 24px' }}>
+          Добавьте нормативный документ в базу знаний. AI будет использовать его при ответах.
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Название документа</div>
+          <input
+            value={docName}
+            onChange={e => setDocName(e.target.value)}
+            placeholder="Например: ПУЭ 7-е издание"
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid #E5E7EB', fontSize: 14, color: '#111', outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Текст документа</div>
+          <div
+            onClick={() => fileRef.current?.click()}
+            style={{ border: '1.5px dashed #D1D5DB', borderRadius: 10, padding: '14px', textAlign: 'center', cursor: 'pointer', background: '#F9FAFB', marginBottom: 10 }}
+          >
+            <div style={{ fontSize: 13, color: '#6B7280' }}>📎 Нажмите чтобы загрузить .txt файл</div>
+            <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>или вставьте текст вручную ниже</div>
+          </div>
+          <input ref={fileRef} type="file" accept=".txt" style={{ display: 'none' }} onChange={e => handleFile(e.target.files)} />
+          <textarea
+            value={docText}
+            onChange={e => setDocText(e.target.value)}
+            placeholder="Вставьте текст нормативного документа сюда..."
+            rows={12}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid #E5E7EB', fontSize: 13, color: '#111', outline: 'none', resize: 'vertical', boxSizing: 'border-box' as const, fontFamily: 'inherit', lineHeight: 1.6 }}
+          />
+          {docText && <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>{docText.length.toLocaleString()} символов · ~{Math.ceil(docText.length / 800)} фрагментов</div>}
+        </div>
+
+        <button
+          onClick={upload}
+          disabled={loading || !docName || !docText}
+          style={{
+            width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+            background: loading || !docName || !docText ? '#E5E7EB' : '#1A56DB',
+            color: loading || !docName || !docText ? '#9CA3AF' : '#fff',
+            fontSize: 14, fontWeight: 500, cursor: loading || !docName || !docText ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? 'Загружаю в базу знаний...' : 'Загрузить документ'}
+        </button>
+
+        {result && (
+          <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 10, background: result.startsWith('✅') ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${result.startsWith('✅') ? '#BBF7D0' : '#FECACA'}`, fontSize: 14, color: result.startsWith('✅') ? '#15803D' : '#DC2626' }}>
+            {result}
+          </div>
+        )}
+
+        <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 10, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#92400E', marginBottom: 6 }}>Как загрузить PDF или Word?</div>
+          <div style={{ fontSize: 13, color: '#78350F', lineHeight: 1.6 }}>
+            1. Откройте документ в браузере или Word<br />
+            2. Нажмите Ctrl+A → Ctrl+C (выделить всё и скопировать)<br />
+            3. Вставьте текст в поле выше через Ctrl+V<br />
+            4. Укажите название и нажмите "Загрузить"
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function AboutPage() {
   return (
     <div
@@ -1228,6 +1351,7 @@ export default function App() {
             />
           )}
           {page === 'docs' && <DocsPage />}
+{page === 'upload' && <UploadPage proxyUrl="https://energonorm-proxy.onrender.com" />}
           {page === 'about' && <AboutPage />}
         </div>
       </div>
