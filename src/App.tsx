@@ -248,7 +248,7 @@ const inputStyle = {
   color: '#111',
   outline: 'none',
   width: '100%',
-  boxSizing: 'border-box',
+  boxSizing: 'border-box' as const,
   fontFamily: 'inherit',
   background: '#FAFAFA',
 };
@@ -465,7 +465,7 @@ function ChatPage({
   const readPdf = (file) =>
     new Promise((res, rej) => {
       const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
+    r.onload = () => res((r.result as string).split(',')[1]);
       r.onerror = rej;
       r.readAsDataURL(file);
     });
@@ -806,7 +806,7 @@ function DocsPage() {
         padding: '28px 32px',
         overflowY: 'auto',
         height: '100%',
-        boxSizing: 'border-box',
+        boxSizing: 'border-box' as const,
       }}
     >
       <div style={{ maxWidth: 660 }}>
@@ -914,7 +914,7 @@ function AboutPage() {
         padding: '28px 32px',
         overflowY: 'auto',
         height: '100%',
-        boxSizing: 'border-box',
+       boxSizing: 'border-box' as const,
       }}
     >
       <div style={{ maxWidth: 620 }}>
